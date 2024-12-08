@@ -29,6 +29,9 @@ pipe_frequency = 1500 #millisecond
 last_pipe = pygame.time.get_ticks() - pipe_frequency
 score = 0
 pass_pipe = False
+speed_up_time = 0
+speed_up_duration = 5000 #millisecond
+original_scrool_speed = scroll_speed
 
 
 #load images:
@@ -42,11 +45,27 @@ def draw_text(text , font , text_col , x , y):
     screen.blit(img , (x ,y))
 
 def reset_game():
+    global scroll_speed
+    scroll_speed = original_scrool_speed
     pipe_group.empty()
     flappy.rect.x = 100
     flappy.rect.y = int(screen_height / 2)
     score = 0
     return score
+
+#Create energy and check collusion with pipes:
+def create_energy():
+    energy = Energy()
+
+    while check_collusion_with_pipes(energy):
+        energy.rect.y = random.randint(100 , screen_height - 100)
+    energy_group.add(energy)
+
+def check_collusion_with_pipes():
+    for pipe in pipe_group:
+        if energy.rect.colliderect(pipe.rect):
+            return True
+    return False
 
 
 class Bird(pygame.sprite.Sprite):
@@ -143,9 +162,30 @@ class Button():
         screen.blit(self.image , (self.rect.x , self.rect.y))
 
         return action
+    
+class Energy(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load("img/energy.png")
+        self.rect = self.image.get_rect()
+        self.rect.x = screen_width
+        self.rect.y = random.randint(100 , screen_height - 100)
+        self.speed = 5
+
+    def update(self):
+        if self.speed > 0:
+            self.speed = 5
+        self.rect.x -= self.speed
+        if self.rect.right < 0:
+            self.kill()
+
+    def draw(self , screen):
+        screen.blit(self.image , self.rect)
+
+    
 
 
-
+energy_group = pygame.sprite.Group()
 bird_group = pygame.sprite.Group()
 pipe_group = pygame.sprite.Group()
 
@@ -171,6 +211,9 @@ while run:
 
     pipe_group.draw(screen)
     
+    # draw energy and update energy:
+    energy_group.update()
+    energy_group.draw(screen)
 
     #draw the ground:
     screen.blit(ground_image , (ground_scroll,768))
@@ -218,6 +261,22 @@ while run:
             ground_scroll = 0 #Zemin |36|'dan büyük olursa, zemini yeniden olusturuyoruz (zeminin normal büyüklüğü 36)
 
         pipe_group.update()
+
+        #Energy:
+        if random.randint(1 , 100 )  == 1:
+            print("Energy created")
+            energy = Energy()
+            energy_group.add(energy)
+
+        if pygame.sprite.spritecollide(flappy , energy_group , False):
+            print("Energy collected")
+            scroll_speed += 4
+            speed_up_time = pygame.time.get_ticks() #get_ticks() : measure time
+            energy_group.empty()
+
+    if scroll_speed > original_scrool_speed:
+        if pygame.time.get_ticks() - speed_up_time >= speed_up_duration:
+            scroll_speed = original_scrool_speed
 
     #check for game over and reset:
     if game_over == True:
